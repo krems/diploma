@@ -1,0 +1,64 @@
+\newpage
+\chapter*{Приложение}
+\addcontentsline{toc}{chapter}{Приложение}
+Для моделирования эволюции заселенностей NV-центра была использована
+программа (\ref{code}). Расчет производился на основе
+гамильтониана (\ref{eq:shamiltonian}). Форма, амплитуда и частота микроволнового
+импульса подавались на вход программе, а на выходе получались данные
+зависимости заселенностей уровней от времени. По этим данным были
+получены представленные в работе графики.
+
+В данном листинге представлен вариант программы, когда амплитуда
+постоянного поля составляет 850 Гс. Здесь также учтены продольная и
+поперечная компоненты тензора энергии расщепления в кристаллическом
+поле электронных спиновых состояний.
+\begin{lstlisting}[label=code, caption=NV-center model]
+% @field_amplitude -- function(t) of amplitude of microwave field
+% @omega -- frequency of microwave field
+% @t_end -- time period during which the probabilities are calculated
+%     in nanosecs
+% return value -- matrix: vector t of time values, vector psi of
+%     psi^2(probabilities)
+function [t, psi] = test_func(field_amplitude, A, omega, t_end)
+    t_end = t_end * 10^-9;
+    B_z = 850;
+    psi_init = [0 1 0];
+    D = 2877 * 10^6;
+    E = 7.7 * 10^6;
+    % electron
+    mu = 2.0028 * 5.788 * 10^-9;
+    [t, psi] = nv_system(psi_init, D, E, mu, B_z, field_amplitude, 
+                         A, omega, t_end);
+
+    function [t, psi] = nv_system(psi_init, D, E, mu, B_z, B_0, 
+                                  A, omega_field, t_end)
+        h = 4.135 * 10^-15;
+        t_init = 0;
+        t_interval = [t_init, t_end];
+        % Schrodinger equation    
+        [t, psi] = ode45(@Right_part, t_interval, psi_init);
+        [m,] = size(psi);
+        % calculating probabilities
+        for i = 1:m
+            psi(i, 1) = abs(psi(i,1)^2);
+            psi(i, 2) = abs(psi(i,2)^2);
+            psi(i, 3) = abs(psi(i,3)^2);
+        end;
+    
+        function dy = Right_part(t, y)
+            k1 = h * D;
+            k2 = h * E;
+            Hamiltonian = [k1 + mu * B_z, 
+                           mu * B_0(t, A) * cos(omega_field * t), 
+                           2 * k2; 
+                           mu * B_0(t, A) * cos(omega_field * t), 
+                           0, 
+                           mu * B_0(t, A) * cos(omega_field * t);
+                           2 * k2, 
+                           mu * B_0(t, A) * cos(omega_field * t), 
+                           k1 - mu * B_z];
+            dy = (Hamiltonian * y).*(-1i / h);
+        end
+    end
+end
+\end{lstlisting}
